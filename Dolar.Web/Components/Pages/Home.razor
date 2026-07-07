@@ -1,0 +1,92 @@
+﻿@page "/"
+@inject HttpClient Http
+@rendermode InteractiveServer
+
+<PageTitle>Tipo de Cambio</PageTitle>
+
+<h1>Tipo de Cambio BCV</h1>
+
+@if (_loading)
+{
+    <p>Cargando tasa de cambio...</p>
+}
+else if (_rate is null)
+{
+    <p>No se pudo cargar la tasa de cambio en este momento. Verifica que la API esté corriendo.</p>
+}
+else
+{
+    <div>
+        <h2>USD: @_rate.Value</h2>
+        <p>Actualizado: @_rate.RetrievedAt.ToString("g")</p>
+        <p>Fuente: @_rate.Source</p>
+    </div>
+}
+
+<button class="btn btn-primary" @onclick="RefreshAsync">Actualizar</button>
+
+@code {
+    private ExchangeRateDto? _rate;
+    private bool _loading;
+
+    private readonly string[] _apiBaseUrls =
+    [
+        "https://localhost:7228",
+        "http://localhost:7228",
+        "https://localhost:7174",
+        "http://localhost:5257",
+        "https://localhost:5001",
+        "http://localhost:5000"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            foreach (var baseUrl in _apiBaseUrls)
+            {
+                try
+                {
+                    var endpoint = $"{baseUrl}/api/exchangerates/current";
+                    var response = await Http.GetFromJsonAsync<ExchangeRateDto>(endpoint);
+                    if (response is not null)
+                    {
+                        _rate = response;
+                        return;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // Intentionally ignored; the next base URL will be tried.
+                }
+                catch (TaskCanceledException)
+                {
+                    // Intentionally ignored; the next base URL will be tried.
+                }
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+    }
+
+    public class ExchangeRateDto
+    {
+        public decimal Value { get; set; }
+        public DateTimeOffset RetrievedAt { get; set; }
+        public string Source { get; set; } = string.Empty;
+        public bool IsCached { get; set; }
+    }
+}
