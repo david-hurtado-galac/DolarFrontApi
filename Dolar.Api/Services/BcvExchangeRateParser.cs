@@ -23,7 +23,7 @@ public class BcvExchangeRateParser
 
         var normalized = WebUtility.HtmlDecode(html);
         normalized = Regex.Replace(normalized, "<[^>]+>", " ");
-        normalized = Regex.Replace(normalized, "\s+", " ");
+        normalized = Regex.Replace(normalized, @"\s+", " ");
 
         var contextMatch = CurrencyContextRegex.Match(normalized);
         if (contextMatch.Success)
