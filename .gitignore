@@ -1,0 +1,55 @@
+## .NET / ASP.NET Core / Blazor
+bin/
+obj/
+out/
+artifacts/
+
+## User-specific / local files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Logs and temp files
+*.log
+*.tmp
+*.temp
+*.cache
+*.pid
+
+## OS junk files
+.DS_Store
+Thumbs.db
+
+## publish output
+publish/
+
+## secrets / environment
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.pem
+.env
+.env.*
+
+## test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+
+## Rider / Visual Studio Code
+/.idea/
+/.vscode/
+
+## Certificates / local dev certs
+*.pfx
+*.cer
