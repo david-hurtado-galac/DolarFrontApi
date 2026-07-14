@@ -1,29 +1,127 @@
 ﻿@page "/"
+@using System.Globalization
 @inject HttpClient Http
 @rendermode InteractiveServer
 
 <PageTitle>Tipo de Cambio</PageTitle>
 
-<h1>Tipo de Cambio BCV</h1>
+<div class="page-shell">
+    <header class="page-header">
+        <div class="page-title-group">
+            <p class="eyebrow">Banco Central de Venezuela</p>
+            <h1>Tasas de Cambio</h1>
+            <p class="subtitle">Referencia en bolívares (Bs.)</p>
+        </div>
 
-@if (_loading)
-{
-    <p>Cargando tasa de cambio...</p>
-}
-else if (_rate is null)
-{
-    <p>No se pudo cargar la tasa de cambio en este momento. Verifica que la API esté corriendo.</p>
-}
-else
-{
-    <div>
-        <h2>USD: @_rate.Value</h2>
-        <p>Actualizado: @_rate.RetrievedAt.ToString("g")</p>
-        <p>Fuente: @_rate.Source</p>
-    </div>
-}
+        <button class="refresh-pill" @onclick="RefreshAsync" disabled="@_loading">
+            <span class="refresh-icon">↻</span>
+            <span>@(_loading ? "Actualizando..." : "Actualizar")</span>
+        </button>
+    </header>
 
-<button class="btn btn-primary" @onclick="RefreshAsync">Actualizar</button>
+    <section class="table-card">
+        <div class="table-header">
+            <span>Moneda</span>
+            <span class="text-end">Tasa Compra</span>
+            <span class="text-end">Tasa Venta</span>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="table-row">
+                <div class="currency-info">
+                    <span class="flag">💱</span>
+                    <div>
+                        <p class="currency-name">Cargando tasa actual...</p>
+                        <p class="currency-code">USD / Bs.</p>
+                    </div>
+                </div>
+                <div class="rate-cell">--</div>
+                <div class="rate-cell">--</div>
+            </div>
+        }
+        else if (_rate is null)
+        {
+            <div class="table-row">
+                <div class="currency-info">
+                    <span class="flag">⚠️</span>
+                    <div>
+                        <p class="currency-name">No se pudo cargar la tasa</p>
+                        <p class="currency-code">Verifique la API</p>
+                    </div>
+                </div>
+                <div class="rate-cell">--</div>
+                <div class="rate-cell">--</div>
+            </div>
+        }
+        else
+        {
+            <div class="table-row">
+                <div class="currency-info">
+                    <span class="flag">🇺🇸</span>
+                    <div>
+                        <p class="currency-name">Dólar Estadounidense</p>
+                        <p class="currency-code">$ USD</p>
+                    </div>
+                </div>
+                <div class="rate-cell">Bs. @FormatBs(_rate.Value)</div>
+                <div class="rate-cell">Bs. @FormatBs(_rate.Value)</div>
+            </div>
+        }
+
+        <div class="table-footer">
+            <span>Tasas referenciales. Fuente: @(_rate?.Source ?? "BCV")</span>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Alza</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#f43f5e"></span>Baja</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#9ca3af"></span>Sin cambio</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="summary-grid">
+        <article class="summary-card">
+            <div class="summary-header">
+                <span class="summary-flag">🇺🇸</span>
+                <span class="change-pill up">▲ +0.30%</span>
+            </div>
+            <p class="summary-meta">USD / Bs.</p>
+            <p class="summary-value">@FormatBs(_rate?.Value ?? 0)</p>
+        </article>
+        <article class="summary-card">
+            <div class="summary-header">
+                <span class="summary-flag">🇪🇺</span>
+                <span class="change-pill down">▼ -0.15%</span>
+            </div>
+            <p class="summary-meta">EUR / Bs.</p>
+            <p class="summary-value">39.80</p>
+        </article>
+        <article class="summary-card">
+            <div class="summary-header">
+                <span class="summary-flag">🇮🇳</span>
+                <span class="change-pill neutral">■ 0.00%</span>
+            </div>
+            <p class="summary-meta">INR / Bs.</p>
+            <p class="summary-value">0.4350</p>
+        </article>
+        <article class="summary-card">
+            <div class="summary-header">
+                <span class="summary-flag">🇷🇺</span>
+                <span class="change-pill down">▼ -0.08%</span>
+            </div>
+            <p class="summary-meta">RUB / Bs.</p>
+            <p class="summary-value">0.3880</p>
+        </article>
+        <article class="summary-card">
+            <div class="summary-header">
+                <span class="summary-flag">🇨🇳</span>
+                <span class="change-pill up">▲ +0.05%</span>
+            </div>
+            <p class="summary-meta">CNY / Bs.</p>
+            <p class="summary-value">5.0200</p>
+        </article>
+    </section>
+</div>
 
 @code {
     private ExchangeRateDto? _rate;
@@ -80,6 +178,11 @@ else
     private async Task RefreshAsync()
     {
         await LoadAsync();
+    }
+
+    private static string FormatBs(decimal value)
+    {
+        return value.ToString(value < 1 ? "0.0000" : "0.00", CultureInfo.GetCultureInfo("es-VE"));
     }
 
     public class ExchangeRateDto
