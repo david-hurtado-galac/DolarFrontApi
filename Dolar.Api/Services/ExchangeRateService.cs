@@ -9,7 +9,7 @@ public class ExchangeRateService
     private readonly IMemoryCache _cache;
     private readonly ILogger<ExchangeRateService> _logger;
     private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(10);
-    private const string CacheKey = "bcv:usd";
+    private const string CacheKey = "bcv:usd-eur";
 
     public ExchangeRateService(
         IHttpClientFactory httpClientFactory,
@@ -58,20 +58,32 @@ public class ExchangeRateService
         {
             using var client = _httpClientFactory.CreateClient("BcvClient");
             var html = await client.GetStringAsync("https://www.bcv.org.ve/", cancellationToken);
-            var value = _parser.Parse(html);
+            var rates = _parser.Parse(html);
 
-            if (value is null)
+            if (rates is null || (rates.Usd is null && rates.Eur is null))
+            {
+                _logger.LogWarning("Unable to parse USD or EUR rate from BCV response.");
+                return null;
+            }
+
+            if (rates.Usd is null)
             {
                 _logger.LogWarning("Unable to parse USD rate from BCV response.");
-                return null;
+            }
+
+            if (rates.Eur is null)
+            {
+                _logger.LogWarning("Unable to parse EUR rate from BCV response.");
             }
 
             return new Models.ExchangeRateResponse
             {
-                Value = value.Value,
+                Usd = rates.Usd,
+                Eur = rates.Eur,
                 RetrievedAt = DateTimeOffset.UtcNow,
                 Source = "Banco Central de Venezuela",
-                IsCached = false
+                IsCached = false,
+                Errors = rates.Errors
             };
         }
         catch (Exception ex)

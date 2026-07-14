@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <!-- Override transitive 2.0.0 (NU1903 / GHSA-v5pm-xwqc-g5wc); stay on 2.x for ASP.NET Core 10 -->
     <PackageReference Include="Microsoft.OpenApi" Version="2.9.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.64" />
   </ItemGroup>
 
 </Project>

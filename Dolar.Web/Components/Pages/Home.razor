@@ -17,7 +17,8 @@ else if (_rate is null)
 else
 {
     <div>
-        <h2>USD: @_rate.Value</h2>
+        <h2>USD: @_rate.Usd?.ToString("N8") ?? "No disponible"</h2>
+        <h2>EUR: @_rate.Eur?.ToString("N8") ?? "No disponible"</h2>
         <p>Actualizado: @_rate.RetrievedAt.ToString("g")</p>
         <p>Fuente: @_rate.Source</p>
     </div>
@@ -84,7 +85,8 @@ else
 
     public class ExchangeRateDto
     {
-        public decimal Value { get; set; }
+        public decimal? Usd { get; set; }
+        public decimal? Eur { get; set; }
         public DateTimeOffset RetrievedAt { get; set; }
         public string Source { get; set; } = string.Empty;
         public bool IsCached { get; set; }
