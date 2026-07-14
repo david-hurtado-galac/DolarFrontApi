@@ -7,6 +7,8 @@ namespace Dolar.Api.Services;
 
 public class BcvExchangeRateParser
 {
+    private static readonly string[] UsdIds = { "dolar", "dólar", "usd" };
+    private static readonly string[] EurIds = { "euro", "eur" };
     private static readonly string[] UsdTerms = { "usd", "dólar", "dolar", "dólares", "dolares" };
     private static readonly string[] EurTerms = { "eur", "euro", "euros" };
     private static readonly Regex NumberRegex = new(@"\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,8})?", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -21,8 +23,8 @@ public class BcvExchangeRateParser
         var document = new HtmlDocument();
         document.LoadHtml(html);
 
-        var usd = ExtractRate(document, UsdTerms);
-        var eur = ExtractRate(document, EurTerms);
+        var usd = ExtractRateById(document, UsdIds) ?? ExtractRateUsingCurrencyLabel(document, UsdTerms);
+        var eur = ExtractRateById(document, EurIds) ?? ExtractRateUsingCurrencyLabel(document, EurTerms);
 
         if (usd is null && eur is null)
         {
@@ -48,58 +50,88 @@ public class BcvExchangeRateParser
         };
     }
 
-    private static decimal? ExtractRate(HtmlDocument document, string[] currencyTerms)
+    private static decimal? ExtractRateById(HtmlDocument document, string[] ids)
     {
-        var rows = document.DocumentNode.SelectNodes("//tr");
-        if (rows is not null)
+        foreach (var id in ids)
         {
-            foreach (var row in rows)
+            var node = document.DocumentNode.SelectSingleNode($"//div[@id='{id}']");
+            if (node is null)
             {
-                var rowText = NormalizeText(row.InnerText).ToLowerInvariant();
-                if (ContainsAny(rowText, currencyTerms))
-                {
-                    var rate = ParseDecimalFromRow(row, currencyTerms);
-                    if (rate is not null)
-                    {
-                        return rate;
-                    }
-                }
+                continue;
             }
-        }
 
-        var blocks = document.DocumentNode.SelectNodes("//div|//span|//p|//li");
-        if (blocks is not null)
-        {
-            foreach (var block in blocks)
+            var value = ParseDecimalFromNode(node);
+            if (value is not null)
             {
-                var blockText = NormalizeText(block.InnerText).ToLowerInvariant();
-                if (ContainsAny(blockText, currencyTerms))
-                {
-                    var rate = ParseDecimalFromNode(block);
-                    if (rate is not null)
-                    {
-                        return rate;
-                    }
-                }
+                return value;
             }
         }
 
         return null;
     }
 
-    private static decimal? ParseDecimalFromRow(HtmlNode row, string[] currencyTerms)
+    private static decimal? ExtractRateUsingCurrencyLabel(HtmlDocument document, string[] currencyTerms)
     {
-        var cells = row.SelectNodes(".//td|.//th");
-        if (cells is not null)
+        var nodes = document.DocumentNode.SelectNodes("//div|//span|//p|//li|//td|//th|//strong");
+        if (nodes is null)
         {
-            foreach (var cell in cells)
+            return null;
+        }
+
+        foreach (var node in nodes)
+        {
+            var normalized = NormalizeText(node.InnerText).ToLowerInvariant();
+            if (!ContainsAny(normalized, currencyTerms))
             {
-                if (ContainsAny(NormalizeText(cell.InnerText).ToLowerInvariant(), currencyTerms))
+                continue;
+            }
+
+            var value = ParseDecimalFromNode(node);
+            if (value is not null)
+            {
+                return value;
+            }
+
+            value = ParseDecimalFromSiblingNodes(node);
+            if (value is not null)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static decimal? ParseDecimalFromSiblingNodes(HtmlNode node)
+    {
+        var sibling = node.NextSibling;
+        while (sibling is not null)
+        {
+            var value = ParseDecimalFromNode(sibling);
+            if (value is not null)
+            {
+                return value;
+            }
+
+            sibling = sibling.NextSibling;
+        }
+
+        return node.ParentNode is not null ? ParseDecimalFromNode(node.ParentNode) : null;
+    }
+
+    private static decimal? ParseDecimalFromNode(HtmlNode node)
+    {
+        var candidates = node.SelectNodes(".//strong|.//b|.//span|.//td|.//th|.//div");
+        if (candidates is not null)
+        {
+            foreach (var candidate in candidates)
+            {
+                if (candidate == node)
                 {
                     continue;
                 }
 
-                var value = ParseDecimalFromText(cell.InnerText);
+                var value = ParseDecimalFromText(candidate.InnerText);
                 if (value is not null)
                 {
                     return value;
@@ -107,19 +139,7 @@ public class BcvExchangeRateParser
             }
         }
 
-        return ParseDecimalFromText(row.InnerText);
-    }
-
-    private static decimal? ParseDecimalFromNode(HtmlNode node)
-    {
-        var value = ParseDecimalFromText(node.InnerText);
-        if (value is not null)
-        {
-            return value;
-        }
-
-        var siblingText = node.ParentNode?.InnerText;
-        return siblingText is not null ? ParseDecimalFromText(siblingText) : null;
+        return ParseDecimalFromText(node.InnerText);
     }
 
     private static decimal? ParseDecimalFromText(string? text)
