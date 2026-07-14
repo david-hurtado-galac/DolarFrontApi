@@ -1,5 +1,6 @@
 using Dolar.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Dolar.Api.Models;
 
 namespace Dolar.Api.Controllers;
 
@@ -26,7 +27,7 @@ public class ExchangeRatesController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(CancellationToken cancellationToken)
     {
-        var result = await _exchangeRateService.RefreshAsync(cancellationToken);
+        var result = await _exchangeRateService.RefreshAsync(cancellationToken: cancellationToken);
         return result is null
             ? StatusCode(502, new { message = "No se pudo actualizar la tasa de cambio." })
             : Ok(result);

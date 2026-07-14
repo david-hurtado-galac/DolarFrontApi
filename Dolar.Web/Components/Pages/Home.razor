@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject HttpClient Http
+@using System.Net.Http.Json
 @rendermode InteractiveServer
 
 <PageTitle>Tipo de Cambio</PageTitle>
@@ -8,25 +9,31 @@
 
 @if (_loading)
 {
-    <p>Cargando tasa de cambio...</p>
+    <p>Cargando tasas de cambio...</p>
 }
-else if (_rate is null)
+else if (_rates is null || _rates.Count == 0)
 {
-    <p>No se pudo cargar la tasa de cambio en este momento. Verifica que la API esté corriendo.</p>
+    <p>No se pudo cargar las tasas de cambio en este momento. Verifica que la API esté corriendo.</p>
 }
 else
 {
     <div>
-        <h2>USD: @_rate.Value</h2>
-        <p>Actualizado: @_rate.RetrievedAt.ToString("g")</p>
-        <p>Fuente: @_rate.Source</p>
+        @foreach (var r in _rates)
+        {
+            <div class="mb-3">
+                <h2>@r.Currency: @r.Value</h2>
+                <p>Actualizado: @r.RetrievedAt.ToString("g")</p>
+                <p>Fuente: @r.Source</p>
+                <p><small>@(r.IsCached ? "Desde caché" : "Reciente")</small></p>
+            </div>
+        }
     </div>
 }
 
 <button class="btn btn-primary" @onclick="RefreshAsync">Actualizar</button>
 
 @code {
-    private ExchangeRateDto? _rate;
+    private List<ExchangeRateDto>? _rates;
     private bool _loading;
 
     private readonly string[] _apiBaseUrls =
@@ -54,10 +61,10 @@ else
                 try
                 {
                     var endpoint = $"{baseUrl}/api/exchangerates/current";
-                    var response = await Http.GetFromJsonAsync<ExchangeRateDto>(endpoint);
-                    if (response is not null)
+                    var response = await Http.GetFromJsonAsync<List<ExchangeRateDto>>(endpoint);
+                    if (response is not null && response.Count > 0)
                     {
-                        _rate = response;
+                        _rates = response;
                         return;
                     }
                 }
@@ -79,11 +86,41 @@ else
 
     private async Task RefreshAsync()
     {
-        await LoadAsync();
+        _loading = true;
+        try
+        {
+            foreach (var baseUrl in _apiBaseUrls)
+            {
+                try
+                {
+                    var endpoint = $"{baseUrl}/api/exchangerates/refresh";
+                    var resp = await Http.PostAsJsonAsync(endpoint, new { });
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        // After a successful refresh, reload current rates
+                        await LoadAsync();
+                        return;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // Intentionally ignored; the next base URL will be tried.
+                }
+                catch (TaskCanceledException)
+                {
+                    // Intentionally ignored; the next base URL will be tried.
+                }
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     public class ExchangeRateDto
     {
+        public string Currency { get; set; } = string.Empty;
         public decimal Value { get; set; }
         public DateTimeOffset RetrievedAt { get; set; }
         public string Source { get; set; } = string.Empty;
