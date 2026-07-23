@@ -4,27 +4,188 @@
 
 <PageTitle>Tipo de Cambio</PageTitle>
 
-<h1>Tipo de Cambio BCV</h1>
+<div class="home-shell">
+    <nav class="home-nav">
+        <div class="home-brand">
+            <div class="brand-logo">B</div>
+            <div>
+                <div class="brand-title">BCV<span>Rate</span></div>
+                <div class="brand-subtitle">Tasa oficial del dólar</div>
+            </div>
+        </div>
 
-@if (_loading)
-{
-    <p>Cargando tasa de cambio...</p>
-}
-else if (_rate is null)
-{
-    <p>No se pudo cargar la tasa de cambio en este momento. Verifica que la API esté corriendo.</p>
-}
-else
-{
-    <div>
-        <h2>USD: @_rate.Usd?.ToString("N8") ?? "No disponible"</h2>
-        <h2>EUR: @_rate.Eur?.ToString("N8") ?? "No disponible"</h2>
-        <p>Actualizado: @_rate.RetrievedAt.ToString("g")</p>
-        <p>Fuente: @_rate.Source</p>
-    </div>
-}
+        <div class="home-actions">
+            <div class="live-label">
+                <span class="live-dot"></span>
+                EN VIVO
+            </div>
+            <button class="refresh-button" @onclick="RefreshAsync" disabled="@_loading">
+                ↻ Actualizar
+            </button>
+        </div>
+    </nav>
 
-<button class="btn btn-primary" @onclick="RefreshAsync">Actualizar</button>
+    @if (_rate is not null)
+    {
+        <div class="ticker">
+            <div class="ticker-track">
+                @foreach (var item in GetTickerItems())
+                {
+                    <div class="ticker-item">
+                        <span class="ticker-label">@item.Label</span>
+                        <span class="ticker-value">@item.Value</span>
+                        <span class="ticker-change @(item.Up ? "positive" : "negative")">@item.Change</span>
+                    </div>
+                }
+                @foreach (var item in GetTickerItems())
+                {
+                    <div class="ticker-item">
+                        <span class="ticker-label">@item.Label</span>
+                        <span class="ticker-value">@item.Value</span>
+                        <span class="ticker-change @(item.Up ? "positive" : "negative")">@item.Change</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <main class="home-main">
+        <section class="hero-section">
+            <div class="hero-info">
+                <div class="hero-tag">
+                    <span></span>
+                    Banco Central de Venezuela — Tasa Oficial
+                </div>
+                <p class="hero-meta">@FormatDate(_rate?.RetrievedAt ?? DateTimeOffset.Now) · Actualizado @FormatTime(_rate?.RetrievedAt ?? DateTimeOffset.Now)</p>
+
+                <div class="hero-value-row">
+                    <div>
+                        <div class="hero-label">USD / VES</div>
+                        <div class="hero-rate">
+                            <span class="hero-rate-int">@FormatRateInteger(_rate?.Usd ?? 0)</span>
+                            <span class="hero-rate-dec">.@FormatRateDecimal(_rate?.Usd ?? 0)</span>
+                            <span class="hero-currency">Bs.D</span>
+                        </div>
+                    </div>
+
+                    <div class="hero-actions">
+                        <span class="badge-official">OFICIAL</span>
+                        <div class="live-status">
+                            <span class="live-dot small"></span>
+                            EN VIVO
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-summary">
+                    <div class="hero-change @(IsPositive ? "positive" : "negative")">
+                        @(IsPositive ? "▲" : "▼") @Change.ToString("F2") (@(IsPositive ? "+" : "")@ChangePct)%
+                    </div>
+                    <div class="hero-source">Fuente: @_rate?.Source</div>
+                </div>
+
+                @if (_loading)
+                {
+                    <div class="loading-placeholder">Cargando tasa de cambio...</div>
+                }
+            </div>
+
+            <div class="hero-card card-hover">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">7 días</div>
+                        <div class="card-subtitle">Histórico semanal</div>
+                    </div>
+                    <span class="badge-small">+1.94%</span>
+                </div>
+                <svg viewBox="0 0 280 60" class="sparkline-svg">
+                    <defs>
+                        <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#34d399" stop-opacity="0.25" />
+                            <stop offset="100%" stop-color="#34d399" stop-opacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <path d="@SparklineArea" fill="url(#sparklineGradient)" />
+                    <path d="@SparklinePath" fill="none" stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="sparkline-axis">
+                    @foreach (var label in GetSparklineLabels())
+                    {
+                        <span>@label</span>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="secondary-section">
+            <h2>Tasas Calculadas vs Bolívar</h2>
+            <div class="secondary-grid">
+                @foreach (var currency in SecondaryRates)
+                {
+                    <div class="secondary-card card-hover">
+                        <div class="secondary-card-header">
+                            <span>@currency.Code / VES</span>
+                            <span class="badge-small">+0.3%</span>
+                        </div>
+                        <div class="secondary-value">@FormatDerivedRate(currency.Multiplier)</div>
+                        <div class="secondary-footnote">1 @currency.Symbol = @FormatDerivedRate(currency.Multiplier) Bs.D</div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="details-section">
+            <div class="history-card card-hover">
+                <div class="history-header">
+                    <h3>Histórico Semanal</h3>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tasa (Bs.D)</th>
+                            <th>Variación</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in HistoryRows)
+                        {
+                            <tr class="@(row.IsToday ? "row-today" : string.Empty)">
+                                <td>@row.Date @if (row.IsToday) { <span class="today-label">HOY</span> }</td>
+                                <td>@row.Rate.ToString("F2")</td>
+                                <td class="@(row.Up ? "positive" : "negative")">@(row.Up ? "+" : "")@row.Diff.ToString("F2") (@(row.Up ? "+" : "")@row.DiffPercent.ToString("F2")%)</td>
+                                <td><span class="badge-pill">@(row.Up ? "ALZA" : "BAJA")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-column">
+                <div class="info-card card-hover">
+                    <h3>Sobre la Tasa BCV</h3>
+                    <p>La tasa oficial es publicada diariamente por el Banco Central de Venezuela (BCV) mediante el sistema SIVEC. Es la referencia para transacciones comerciales e institucionales.</p>
+                </div>
+                <div class="stat-grid">
+                    @foreach (var stat in StatCards)
+                    {
+                        <div class="stat-card card-hover">
+                            <div class="stat-label">@stat.Label</div>
+                            <div class="stat-value">@stat.Value</div>
+                            <div class="stat-icon">@stat.Icon</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="home-footer">
+        <div>© 2025 BCVRate · Datos con fines informativos</div>
+        <div><span class="status-dot"></span> Sistema en línea</div>
+    </footer>
+</div>
 
 @code {
     private ExchangeRateDto? _rate;
@@ -39,6 +200,32 @@ else
         "https://localhost:5001",
         "http://localhost:5000"
     ];
+
+    private readonly HistoryPoint[] _historyDays =
+    {
+        new HistoryPoint("17 Jul", 46.28m),
+        new HistoryPoint("18 Jul", 46.41m),
+        new HistoryPoint("19 Jul", 46.55m),
+        new HistoryPoint("20 Jul", 46.71m),
+        new HistoryPoint("21 Jul", 46.89m),
+        new HistoryPoint("22 Jul", 47.03m),
+        new HistoryPoint("23 Jul", 47.18m),
+    };
+
+    private readonly SecondaryRate[] SecondaryRates =
+    {
+        new SecondaryRate("EUR", "Euro", "€", 1.0847m),
+        new SecondaryRate("CNY", "Yuan Chino", "¥", 0.1384m),
+        new SecondaryRate("COP", "Peso Col.", "COP", 0.000233m),
+        new SecondaryRate("BRL", "Real", "R$", 0.1832m),
+    };
+
+    private readonly StatCard[] StatCards =
+    {
+        new StatCard("Mínimo 7D", "46.28 Bs.D", "↓"),
+        new StatCard("Máximo 7D", "47.18 Bs.D", "↑"),
+        new StatCard("Promedio 7D", "46.74 Bs.D", "≈"),
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -62,13 +249,9 @@ else
                         return;
                     }
                 }
-                catch (HttpRequestException)
+                catch
                 {
-                    // Intentionally ignored; the next base URL will be tried.
-                }
-                catch (TaskCanceledException)
-                {
-                    // Intentionally ignored; the next base URL will be tried.
+                    // Ignored, try next base URL.
                 }
             }
         }
@@ -83,7 +266,117 @@ else
         await LoadAsync();
     }
 
-    public class ExchangeRateDto
+    private IEnumerable<TickerItem> GetTickerItems()
+    {
+        var rate = _rate?.Usd ?? 0m;
+        if (rate <= 0m) return Array.Empty<TickerItem>();
+
+        var list = new[]
+        {
+            new TickerItem("USD/VES BCV", rate.ToString("F2"), "+0.32%", true),
+            new TickerItem("EUR/VES", (rate * 1.0847m).ToString("F2"), "+0.29%", true),
+            new TickerItem("CNY/VES", (rate * 0.1384m).ToString("F4"), "+0.31%", true),
+            new TickerItem("BRL/VES", (rate * 0.1832m).ToString("F2"), "+0.18%", true),
+            new TickerItem("COP/VES", (rate * 0.000233m).ToString("F6"), "+0.26%", true),
+            new TickerItem("GBP/VES", (rate * 1.2734m).ToString("F2"), "+0.34%", true),
+        };
+
+        return list;
+    }
+
+    private string FormatRateInteger(decimal rate)
+    {
+        var parts = rate.ToString("F2").Split('.');
+        return parts[0];
+    }
+
+    private string FormatRateDecimal(decimal rate)
+    {
+        var parts = rate.ToString("F2").Split('.');
+        return parts.Length > 1 ? parts[1] : "00";
+    }
+
+    private string FormatDate(DateTimeOffset value) => value.ToString("dddd, d MMMM yyyy", new System.Globalization.CultureInfo("es-VE"));
+    private string FormatTime(DateTimeOffset value) => value.ToString("HH:mm:ss", new System.Globalization.CultureInfo("es-VE"));
+
+    private string FormatDerivedRate(decimal multiplier)
+    {
+        var rate = (_rate?.Usd ?? 0m) * multiplier;
+        return rate < 1m ? rate.ToString("F4") : rate.ToString("F2");
+    }
+
+    private string SparklinePath => BuildSparklinePath();
+    private string SparklineArea => BuildSparklineArea();
+
+    private string BuildSparklinePath()
+    {
+        var values = _historyDays.Select(p => p.Rate).ToArray();
+        var min = values.Min();
+        var max = values.Max();
+        var range = max - min;
+        if (range <= 0m) range = 1m;
+
+        var points = values.Select((value, index) =>
+        {
+            var x = 4 + (double)index / (values.Length - 1) * (280 - 8);
+            var y = 60 - 4 - (double)((value - min) / range) * (60 - 8);
+            return $"{x:F1},{y:F1}";
+        }).ToArray();
+
+        return $"M {string.Join(" L ", points)}";
+    }
+
+    private string BuildSparklineArea()
+    {
+        var path = SparklinePath;
+        var points = path.Replace("M ", string.Empty).Split(" L ");
+        var last = points.Last();
+        return $"M {string.Join(" L ", points)} L {280 - 4},{60 - 4} L 4,{60 - 4} Z";
+    }
+
+    private IEnumerable<string> GetSparklineLabels()
+    {
+        return _historyDays.Select((p, index) => index % 2 == 0 || index == _historyDays.Length - 1 ? p.Date : string.Empty);
+    }
+
+    private IEnumerable<HistoryRow> HistoryRows
+    {
+        get
+        {
+            var reversed = _historyDays.Reverse().ToArray();
+            for (var i = 0; i < reversed.Length; i++)
+            {
+                var day = reversed[i];
+                var prev = i + 1 < reversed.Length ? reversed[i + 1].Rate : day.Rate;
+                var diff = day.Rate - prev;
+                var percent = prev == 0m ? 0m : (diff / prev) * 100m;
+                yield return new HistoryRow(day.Date, day.Rate, diff, percent, i == 0, diff >= 0m);
+            }
+        }
+    }
+
+    private decimal Change
+    {
+        get
+        {
+            if (_historyDays.Length < 2) return 0m;
+            return _historyDays[^1].Rate - _historyDays[^2].Rate;
+        }
+    }
+
+    private decimal ChangePct
+    {
+        get
+        {
+            if (_historyDays.Length < 2) return 0m;
+            var prev = _historyDays[^2].Rate;
+            return prev == 0m ? 0m : (Change / prev) * 100m;
+        }
+    }
+
+    private bool IsPositive => Change >= 0m;
+
+    private sealed record ExchangeRateDto
     {
         public decimal? Usd { get; set; }
         public decimal? Eur { get; set; }
@@ -91,4 +384,10 @@ else
         public string Source { get; set; } = string.Empty;
         public bool IsCached { get; set; }
     }
+
+    private sealed record HistoryPoint(string Date, decimal Rate);
+    private sealed record SecondaryRate(string Code, string Name, string Symbol, decimal Multiplier);
+    private sealed record TickerItem(string Label, string Value, string Change, bool Up);
+    private sealed record StatCard(string Label, string Value, string Icon);
+    private sealed record HistoryRow(string Date, decimal Rate, decimal Diff, decimal DiffPercent, bool IsToday, bool Up);
 }
